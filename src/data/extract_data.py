@@ -1,39 +1,6 @@
 from scipy.io import loadmat
 import numpy as np
 
-
-def read_BCIIII_p300_mat(file_path):
-    """ Read .mat file into a dict """
-    data = loadmat(file_path)
-    del data['__globals__'], data['__header__'], data['__version__']
-    return data
-
-
-def find_timepoints_1D(single_stimulus_code):
-    """
-    Find the indexes where the value of single_stimulus_code turn from zero to non_zero
-    single_stimulus_code : 1-D array
-
-    >>> find_timepoints_1D([5,5,0,0,4,4,4,0,0,1,0,2,0])
-    array([ 0,  4,  9, 11])
-    >>> find_timepoints_1D([0,0,1,2,3,0,1,0,0])
-    array([2, 6])
-    >>> find_timepoints_1D([0,0,1,2,0,1])
-    array([2, 5])
-    >>> find_timepoints_1D([5,0,0,1,2,5])
-    array([0, 3])
-    """
-    flag = True  # whether have seen 0 so far
-    timepoints = []
-    for index, timepoint in enumerate(single_stimulus_code):
-        if timepoint != 0 and flag:
-            timepoints.append(index)
-            flag = False
-        if timepoint == 0 and not flag:
-            flag = True
-    return np.array(timepoints)
-
-
 def extract_data(file_path, seconds_to_slice):
     """ Given a file_path, return the data in a format which is easy to use.
     
@@ -63,7 +30,7 @@ def extract_data(file_path, seconds_to_slice):
     else:
         is_training = False
 
-    data = read_BCIIII_p300_mat(file_path)
+    data = _read_BCIIII_p300_mat(file_path)
     # Training:Signal,StimulusCode,StimulusType,TargetChar,Flashing
     # Test:Signal,StimulusCode,Flashing
     num_characters = data['Signal'].shape[0]
@@ -82,7 +49,7 @@ def extract_data(file_path, seconds_to_slice):
 
     for character in range(num_characters):
         # All electrodes start at the same time so pick 0 is fine
-        timepoints = find_timepoints_1D(data['StimulusCode'][character, :])  # (12*15,)
+        timepoints = _find_timepoints_1D(data['StimulusCode'][character, :])  # (12*15,)
         timepoints = timepoints.reshape([-1, num_intens])  # (15,12)
         for time in range(num_times):
             for intens in range(num_intens):
@@ -98,6 +65,36 @@ def extract_data(file_path, seconds_to_slice):
         return {'signal': signal, 'code': code, 'label': label, 'targetchar': data['TargetChar']}
     else:
         return {'signal': signal, 'code': code}
+
+def _read_BCIIII_p300_mat(file_path):
+    """ Read .mat file into a dict """
+    data = loadmat(file_path)
+    del data['__globals__'], data['__header__'], data['__version__']
+    return data
+
+def _find_timepoints_1D(single_stimulus_code):
+    """
+    Find the indexes where the value of single_stimulus_code turn from zero to non_zero
+    single_stimulus_code : 1-D array
+
+    >>> _find_timepoints_1D([5,5,0,0,4,4,4,0,0,1,0,2,0])
+    array([ 0,  4,  9, 11])
+    >>> _find_timepoints_1D([0,0,1,2,3,0,1,0,0])
+    array([2, 6])
+    >>> _find_timepoints_1D([0,0,1,2,0,1])
+    array([2, 5])
+    >>> _find_timepoints_1D([5,0,0,1,2,5])
+    array([0, 3])
+    """
+    flag = True  # whether have seen 0 so far
+    timepoints = []
+    for index, timepoint in enumerate(single_stimulus_code):
+        if timepoint != 0 and flag:
+            timepoints.append(index)
+            flag = False
+        if timepoint == 0 and not flag:
+            flag = True
+    return np.array(timepoints)
 
 def read_true_letters(path):
     file = open(path)
