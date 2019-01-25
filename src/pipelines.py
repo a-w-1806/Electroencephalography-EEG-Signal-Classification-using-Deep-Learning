@@ -1,28 +1,45 @@
 import numpy as np
 
-from src.data import extract_data
+from src.data.extract_data import extract_data
 from src.data import preprocessing
-from src.data.preprocessing import standardize_along
 
 PARADIGM = np.array([['A','B','C','D','E','F'],['G','H','I','J','K','L'],['M','N','O','P','Q','R'],
                      ['S','T','U','V','W','X'],['Y','Z','1','2','3','4'],['5','6','7','8','9','_']])
 
 
-def signal_mat_sub_band_norm(filepath, seconds_to_slice=0.65, subsample_interval=2,
-                             lowcut=0.1, highcut=20, fs=240, order=5,std_axis = -1):
-    """
+def read_preprocess_data(path, seconds_to_slice=0.65, subsample_interval=2,
+                        lowcut=0.1, highcut=20, fs=240, order=5, std_axis=-1):
+    """ Read data (.mat) and do the necessary preprocessing steps.
 
-    :param filepath:
-    :param seconds_to_slice:
-    :param subsample_interval: 2 means subsample by 2(halved)
-    :param lowcut:
-    :param highcut:
-    :param fs:  the original Fs. Change due to subsampling is handled inside the function
-    :param order:
-    :param std_axis: along which axis do the standardization
-    :return: a dict  only data['signal'] is processed
+    Extract the data in .mat file into a handy structure(dict).
+    Then, apply subsampling and filtering to the signal.
+
+    Args:
+        path (str): The path of the .mat file.
+        seconds_to_slice (int): The number of seconds you want to slice as your data point after an intensify happens.
+        subsample_interval (int): 2 means subsample by 2(halved)
+        lowcut (float): The lower threshold of the filter.
+        highcut (float): The upper threshold of the filter.
+        fs (int): The original Fs. Change due to subsampling is handled inside the function
+        order (int): The order of the filter.
+        std_axis (int): along which axis do the standardization
+
+    Return:
+        dict: 
+            if is_training:
+                {
+                    'signal': [num_characters, num_times, num_intens, num_electrodes, points_per_intens]
+                    'code': [num_characters, num_times, num_intens], meaning as 'StimulusCode'
+                    'label': [num_characters, num_times, num_intens], meaning as 'StimulusType'
+                    'targetchar': [num_characters, num_times], meaning as 'TargetChar'
+                }
+            else:
+                {
+                    'signal'
+                    'code'
+                }
     """
-    data = extract_data.extract_data(file_path=filepath, seconds_to_slice=seconds_to_slice)
+    data = extract_data(path=path, seconds_to_slice=seconds_to_slice)
     signal = data['signal']
     subsampled = preprocessing.subsample(signal, subsample_interval=subsample_interval)
     fs = int(fs / subsample_interval)
@@ -32,8 +49,7 @@ def signal_mat_sub_band_norm(filepath, seconds_to_slice=0.65, subsample_interval
     # reshaped = bandpassed.reshape(reshape)
     # if expand == True:
     #     reshaped = np.expand_dims(reshaped, axis=-1)
-    standardized = standardize_along(bandpassed, axis = std_axis)
-    data['signal'] = standardized
+    data['signal'] = preprocessing.standardize_along(bandpassed, axis = std_axis)
     return data
 
 

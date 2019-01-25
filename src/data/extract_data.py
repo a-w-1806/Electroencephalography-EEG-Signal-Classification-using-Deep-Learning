@@ -1,11 +1,11 @@
 from scipy.io import loadmat
 import numpy as np
 
-def extract_data(file_path, seconds_to_slice):
+def extract_data(path, seconds_to_slice):
     """ Given a file_path, return the data in a format which is easy to use.
     
     Args:
-        file_path (string): The path of the given .mat file.
+        path (str): The path of the given .mat file.
         seconds_to_slice (int): The number of seconds you want to slice as your data point after an intensify happens.
 
     Return:
@@ -24,15 +24,16 @@ def extract_data(file_path, seconds_to_slice):
                 }
     """
 
+    data = _read_BCIIII_p300_mat(path)
+
     # if true then it's training set else test set
     if 'StimulusType' in data.keys():
         is_training = True
     else:
         is_training = False
 
-    data = _read_BCIIII_p300_mat(file_path)
-    # Training:Signal,StimulusCode,StimulusType,TargetChar,Flashing
-    # Test:Signal,StimulusCode,Flashing
+    # Training: Signal, StimulusCode, StimulusType, TargetChar, Flashing
+    # Test: Signal, StimulusCode, Flashing
     num_characters = data['Signal'].shape[0]
     num_timesteps = data['Signal'].shape[1]
     num_electrodes = data['Signal'].shape[2]
