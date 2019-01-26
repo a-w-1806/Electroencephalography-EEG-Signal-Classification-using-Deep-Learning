@@ -4,6 +4,8 @@ from keras import backend as K
 from keras.utils.generic_utils import get_custom_objects
 import numpy as np
 
+from src.data.paradigm import PARADIGM
+
 
 # In the original paper they use a custom activation function for
 # the first two layers
@@ -87,21 +89,21 @@ def CNN_P300_PAMI(input_shape):
     model = models.Model(inputs=input_layer, outputs=output_layer)
     return model
 
-def testing_pipeline(signal, code, model, num_aggregate, paradigm, answer_string):
-    """num_aggregate: int 1-15 or "all" """
+def testing_pipeline(data, trained_model, num_aggregate, answer_string):
+    """ A utility function to output the final performance of the model on the data.
+    
+    """
     if num_aggregate != "all":        # int
-        aggregated = _signalcode_to_aggregate(signal, code, model, num_aggregate)
-        letters = _aggregated_to_letters(aggregated, paradigm)
-        return [accuracy(letters,answer_string)]
+        aggregated = _signalcode_to_aggregate(data, trained_model, num_aggregate)
+        letters = _aggregated_to_letters(aggregated)
+        return accuracy(letters,answer_string)
     else:                           # "all"
         accuracies = []
         for i in range(15):
-            aggregated = _signalcode_to_aggregate(signal, code, model, i+1)
-            letters = _aggregated_to_letters(aggregated, paradigm)
-            accuracies.append(accuracy(letters,answer_string))
+            accuracies.append(testing_pipeline(data, trained_model, i+1, answer_string))
         return accuracies
 
-def _letter_lookup(data, paradigm):
+def _letter_lookup(data):
     """
     data values are all 0-5,return[...,0] means which of 1-6 is selected
                                 return[...,1] means which of 7-12 is selected
@@ -110,7 +112,7 @@ def _letter_lookup(data, paradigm):
     :return: [number_samples,] ndarray
     """
 
-    def __look_up(arr, paradigm=paradigm):
+    def __look_up(arr, paradigm=PARADIGM):
         """ arr: [2,] """
         # arr[0]  0~5->1~6  arr[1] 0~5->7~12
         return paradigm[arr[1], arr[0]]
@@ -149,7 +151,6 @@ def _code_reorder(probs, code):
     sort = np.zeros(probs.shape)
     for i in range(probs.shape[0]):
         for j in range(probs.shape[1]):
-            # sort[i, j, :] = probs[i, j, (code[i, j] - 1).astype(int).tolist()]  # This is wrong !
             sort[i, j, :] = probs[i, j, np.argsort(code[i,j])]
     return sort
 
@@ -159,18 +160,18 @@ def _aggregate_prob_across_trials(sort,num_aggregate):
     aggregated = to_aggregate.sum(axis=1)   # (num_letters,12)  # aggregated probabilities
     return aggregated
 
-def _signalcode_to_aggregate(signal,code,model,num_aggregate):
-    predictions = model.predict(signal)  # [num_samples,2]
+def _signalcode_to_aggregate(data,model,num_aggregate):
+    predictions = model.predict(data['signal'])  # [num_samples,2]
     dropped = np.delete(predictions, 0, -1).squeeze()  # [num_samples,]     <- shit once (predictions,-1,-1)
     reshaped = dropped.reshape([-1, 15, 12])  # may be different
-    sort = _code_reorder(reshaped, code)  # [85,15,12]
+    sort = _code_reorder(reshaped, data['code'])  # [85,15,12]
     aggregated = _aggregate_prob_across_trials(sort, num_aggregate)  # aggregate the probabilities
     return aggregated
 
-def _aggregated_to_letters(aggregated,paradigm):
+def _aggregated_to_letters(aggregated):
     # (num_letters,12) -> (num_letters,2)
     selected = _prob_to_rowcols(aggregated)
-    letters = _letter_lookup(selected, paradigm)
+    letters = _letter_lookup(selected)
     return letters
 
 def accuracy(letters, target_string):
