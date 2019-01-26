@@ -109,6 +109,6 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5, axis=-1):
 
 
 def standardize_along(data, axis):
-    mean = data.mean(axis = axis, keepdims = True)
-    std = data.std(axis = axis,keepdims = True)
-    return (data-mean)/std
+    mean = data.mean(axis=axis, keepdims=True)
+    std = data.std(axis=axis,keepdims=True)
+    return (data - mean) / std

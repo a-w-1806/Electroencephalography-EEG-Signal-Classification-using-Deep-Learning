@@ -6,15 +6,6 @@ import numpy as np
 
 from src.data.paradigm import PARADIGM
 
-
-# In the original paper they use a custom activation function for
-# the first two layers
-
-
-
-
-# model.add(Activation(custom_activation))
-
 def CNN_1_P300_PAMI_BCIIII(Ns=10, seconds_to_slice=0.65):
     """ Reference: Convolutional Neural Networks for P300 Detection with Application to Brain-Computer Interfaces
 
@@ -109,7 +100,7 @@ def testing_pipeline(data, trained_model, num_aggregate, answer_string):
     if num_aggregate != "all":        # int
         aggregated = _signalcode_to_aggregate(data, trained_model, num_aggregate)
         letters = _aggregated_to_letters(aggregated)
-        return [accuracy(letters,answer_string)]
+        return [accuracy(letters, answer_string)]
     else:                           # "all"
         accuracies = []
         for i in range(15):
@@ -117,27 +108,31 @@ def testing_pipeline(data, trained_model, num_aggregate, answer_string):
         return accuracies
 
 def _letter_lookup(data):
-    """
-    data values are all 0-5,return[...,0] means which of 1-6 is selected
-                                return[...,1] means which of 7-12 is selected
-    :param data: [number_samples,2]
-    :param paradigm: paradigm matrix ndarray
-    :return: [number_samples,] ndarray
+    """ See which character is the one.
+
+    Args:
+        data (np.array): (num_chars, 2), where [.., 0] means which of 1-6 is selected, 0-5->1-6
+                                                [...,1] means which of 7-12 is selected, 0-5->7-12
+                                                Both represented by an integer from 0 to 5.
+    Return:
+        np.array: (num_chars, )
     """
 
     def __look_up(arr, paradigm=PARADIGM):
-        """ arr: [2,] """
-        # arr[0]  0~5->1~6  arr[1] 0~5->7~12
+        """ arr[0]  0~5->1~6  arr[1] 0~5->7~12 """
         return paradigm[arr[1], arr[0]]
 
     return np.apply_along_axis(__look_up, axis=1, arr=data)
 
 def _prob_to_rowcols(prob):
     """
-    returned values are all 0-5,return[...,0] means which of 1-6 is selected
-                                return[...,1] means which of 7-12 is selected
-    :param prob: (num_letters,12)   accumulated probabilities
-    :return: (num_letters,2) row/column  0-5->1-6 / 0-5->7-12
+    Args:
+        prob (np.array): (num_chars, num_rowcols)   accumulated probabilities
+
+    Return:
+        np.array: (num_chars, 2), where [.., 0] means which of 1-6 is selected, 0-5->1-6
+                                        [...,1] means which of 7-12 is selected, 0-5->7-12
+                                        Both represented by an integer from 0 to 5.
     """
     ascend_indices = np.argsort(prob, axis=-1)  # (num_letters,12)     # ascending
     selected = np.full((prob.shape[0], 2), np.inf)
@@ -167,38 +162,50 @@ def _code_reorder(probs, code):
             sort[i, j, :] = probs[i, j, np.argsort(code[i,j])]
     return sort
 
-def _aggregate_prob_across_trials(sort,num_aggregate):
-    to_aggregate = np.delete(sort, obj=np.s_[num_aggregate:], axis=1)  # (num_letters,num_aggregate,12)
-    # then sum up
-    aggregated = to_aggregate.sum(axis=1)   # (num_letters,12)  # aggregated probabilities
+def _aggregate_prob_across_trials(sort, num_aggregate):
+    """ Aggregating probabilities across (at most num_repeats) trails"""
+    to_aggregate = np.delete(sort, obj=np.s_[num_aggregate:], axis=1)  # (num_chars, num_repeats, 12)
+    # Then sum up
+    aggregated = to_aggregate.sum(axis=1)   # (num_chars,12)  # aggregated probabilities
     return aggregated
 
-def _signalcode_to_aggregate(data,model,num_aggregate):
+def _signalcode_to_aggregate(data, model, num_aggregate):
+    """ Utility function of giving back aggregated probabilities of each data point."""
     predictions = model.predict(data['signal'])  # [num_samples,2]
-    dropped = np.delete(predictions, 0, -1).squeeze()  # [num_samples,]     <- shit once (predictions,-1,-1)
+    dropped = np.delete(predictions, 0, -1).squeeze()  # [num_samples,]
     reshaped = dropped.reshape([-1, 15, 12])  # may be different
-    sort = _code_reorder(reshaped, data['code'])  # [85,15,12]
+    sort = _code_reorder(reshaped, data['code'])  # [num_chars,15,12]
     aggregated = _aggregate_prob_across_trials(sort, num_aggregate)  # aggregate the probabilities
     return aggregated
 
 def _aggregated_to_letters(aggregated):
+    """
+    Args:
+        aggregated (np.array): (num_chars, num_rowcols)
+
+    Return:
+        np.array: (num_chars, 2)
+    """
     # (num_letters,12) -> (num_letters,2)
     selected = _prob_to_rowcols(aggregated)
     letters = _letter_lookup(selected)
     return letters
 
 def accuracy(letters, target_string):
-    """
+    """ Comparing accuracy to the correct answer.
 
-    :param letters: ndarray (num_letters,)
-    :param target_string string
-    :return: float
+    Args:
+        letters(np.array): (num_chars, )
+        target_string(str)
+
+    Return:
+        float: accuracy.
     """
     count = 0
     assert len(letters) == len(target_string)
     for i in range(len(target_string)):
         if letters[i] == target_string[i]:
-            count+=1
-    return count/len(target_string)
+            count += 1
+    return count / len(target_string)
     
     
