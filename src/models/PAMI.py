@@ -92,15 +92,28 @@ def CNN_P300_PAMI(input_shape):
 def testing_pipeline(data, trained_model, num_aggregate, answer_string):
     """ A utility function to output the final performance of the model on the data.
     
+    Args:
+        data (dict):
+            {
+                'signal': [-1, num_electrodes, num_samples, 1]
+                'code': [num_chars, num_repeats, num_rowcols]
+            }
+        trained_model (Keras)
+        num_aggregate (int or str): if it is "all", return a list of all the possibilities of aggregation from 1 to 15.
+                                    else, return the aggregation result of the given int.
+        answer_string (str): The correct answer of the data's classification.
+
+    Return:
+        list: accuracies of different (if any) aggregations.
     """
     if num_aggregate != "all":        # int
         aggregated = _signalcode_to_aggregate(data, trained_model, num_aggregate)
         letters = _aggregated_to_letters(aggregated)
-        return accuracy(letters,answer_string)
+        return [accuracy(letters,answer_string)]
     else:                           # "all"
         accuracies = []
         for i in range(15):
-            accuracies.append(testing_pipeline(data, trained_model, i+1, answer_string))
+            accuracies += testing_pipeline(data, trained_model, i+1, answer_string)
         return accuracies
 
 def _letter_lookup(data):
