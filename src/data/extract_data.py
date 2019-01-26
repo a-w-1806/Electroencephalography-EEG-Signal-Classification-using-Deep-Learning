@@ -98,7 +98,6 @@ def _find_timepoints_1D(single_stimulus_code):
     return np.array(timepoints)
 
 def read_true_letters(path):
-    file = open(path)
-    answer_string = file.readline()
-    file.close()
+    with open(path) as f:
+        answer_string = f.readline()
     return answer_string
