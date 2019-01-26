@@ -62,7 +62,7 @@ def transform(data, fs, num_rowscols, num_repeat, seconds_to_slice):
                 if is_training:
                     label[character, time, intens] = data['StimulusType'][character, start]
     if is_training:
-        return {'signal': signal, 'code': code, 'label': label, 'targetchar': list(data['targetchar'][0])}
+        return {'signal': signal, 'code': code, 'label': label, 'targetchar': np.array(list(data['TargetChar'][0]))}
     else:
         return {'signal': signal, 'code': code}
 
