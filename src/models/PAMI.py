@@ -70,13 +70,16 @@ def CNN_P300_PAMI(input_shape):
     num_second_filter = 5 * num_first_filter
 
     input_layer = layers.Input(input_shape)
+    # Combining all the electrodes.
     conv_1 = layers.convolutional.Conv2D(filters=num_first_filter, kernel_size=[num_electrodes, 1], 
                                         strides=[1, 1], activation='linear')(input_layer)
-
     conv_1_acti = layers.Activation(sigmoid_pami_p300)(conv_1)
-    # It's slightly different in the paper though..(filter have same parameter along the same axis)but I decide to use this more modern choice
-    conv_2 = layers.convolutional.Conv2D(filters=num_second_filter, kernel_size=[1, 13], strides=[1, 13],
-                                         activation='linear')(conv_1_acti)
+    
+    # It's slightly different in the paper though..(filter have same parameter along the same axis)
+    # But I decide to use this more modern choice.
+    # Have the senmantic of averaging across time.
+    conv_2 = layers.convolutional.Conv2D(filters=num_second_filter, kernel_size=[1, 13], 
+                                        strides=[1, 13], activation='linear')(conv_1_acti)
     conv_2_acti = layers.Activation(sigmoid_pami_p300)(conv_2)
     flatten = layers.Flatten()(conv_2_acti)
     fc = layers.Dense(100, activation='sigmoid')(flatten)
