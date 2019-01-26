@@ -2,6 +2,7 @@ import tensorflow as tf
 from keras import layers, models
 from keras import backend as K
 from keras.utils.generic_utils import get_custom_objects
+import numpy as np
 
 
 # In the original paper they use a custom activation function for
@@ -55,8 +56,6 @@ def CNN_P300_PAMI(input_shape):
 
     Return:
         An uncompiled (Keras jargon) model.
-
-    Ns: Number of filters in the first conv layer
     """
 
     # Let's define the custom activation function used in this layer first
@@ -74,7 +73,7 @@ def CNN_P300_PAMI(input_shape):
     conv_1 = layers.convolutional.Conv2D(filters=num_first_filter, kernel_size=[num_electrodes, 1], 
                                         strides=[1, 1], activation='linear')(input_layer)
     conv_1_acti = layers.Activation(sigmoid_pami_p300)(conv_1)
-    
+
     # It's slightly different in the paper though..(filter have same parameter along the same axis)
     # But I decide to use this more modern choice.
     # Have the senmantic of averaging across time.
@@ -87,3 +86,53 @@ def CNN_P300_PAMI(input_shape):
 
     model = models.Model(inputs=input_layer, outputs=output_layer)
     return model
+
+def to_chars(data, trained_model):
+    """ Given the input data of this model, return the characters of each trial as final result.
+
+    Args:
+        data (dict):
+            {
+                'signal': [-1, num_electrodes, num_samples, 1]
+                'code': [num_chars, num_repeats, num_rowcols]
+            } 
+    Return:
+        np.array of chars: The classification result of this result.
+    """
+    num_electrodes = data['signal'].shape[1]
+    num_chars, num_repeats, num_rowcols = data['code'].shape
+
+    predictions = trained_model.predict(data['signal']) # [-1, 2]
+    #TODO Sigmoid should output only 1.
+    predictions = np.delete(predictions, 0, -1).squeeze()
+
+    # [num_chars, num_repeats, num_rowcols]
+    # Each entry is the probability of a positive sample (when intensified row/character does contain the desired character).
+    predictions = predictions.reshape([-1, num_repeats, num_rowcols]) 
+
+    predictions = _code_reorder(predictions, data['code'])
+
+
+# def _to_code(predictions, code):
+#     result = np.zeros(predictions.shape)
+#     for character in range(predictions.shape[0]):
+#         for repeat in range(predictions.shape[1]):
+#             result[character][repeat] = 
+def _code_reorder(probs, code):
+    """ Utility function to reorder the last index of probs according to the order of occurrence of the code.
+
+    The correspondent order of code is recorded in data['code'], and for utility, I want to reorder them into [code_1, code_2, ...code_12]
+
+    Args:
+        probs (np.array): [num_chars, num_repeats, num_rowcols]. Each entry is the probability of a positive sample (when intensified row/character does contain the desired character).
+        code (np.array): [num_chars, num_repeats, num_rowcols]. The occurrence order of each code in each trial.
+    
+    Returns:
+        np.array: [num_chars, num_repeats, num_rowcols]. 
+    """
+    sort = np.zeros(probs.shape)
+    for i in range(probs.shape[0]):
+        for j in range(probs.shape[1]):
+            # sort[i, j, :] = probs[i, j, (code[i, j] - 1).astype(int).tolist()]  # This is wrong !
+            sort[i, j, :] = probs[i, j, np.argsort(code[i,j])]
+    return sort
