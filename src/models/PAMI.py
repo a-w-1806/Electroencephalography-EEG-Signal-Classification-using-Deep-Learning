@@ -87,37 +87,53 @@ def CNN_P300_PAMI(input_shape):
     model = models.Model(inputs=input_layer, outputs=output_layer)
     return model
 
-def to_chars(data, trained_model):
-    """ Given the input data of this model, return the characters of each trial as final result.
+def testing_pipeline(signal, code, model, num_aggregate, paradigm, answer_string):
+    """num_aggregate: int 1-15 or "all" """
+    if num_aggregate != "all":        # int
+        aggregated = _signalcode_to_aggregate(signal, code, model, num_aggregate)
+        letters = _aggregated_to_letters(aggregated, paradigm)
+        return [accuracy(letters,answer_string)]
+    else:                           # "all"
+        accuracies = []
+        for i in range(15):
+            aggregated = _signalcode_to_aggregate(signal, code, model, i+1)
+            letters = _aggregated_to_letters(aggregated, paradigm)
+            accuracies.append(accuracy(letters,answer_string))
+        return accuracies
 
-    Args:
-        data (dict):
-            {
-                'signal': [-1, num_electrodes, num_samples, 1]
-                'code': [num_chars, num_repeats, num_rowcols]
-            } 
-    Return:
-        np.array of chars: The classification result of this result.
+def _letter_lookup(data, paradigm):
     """
-    num_electrodes = data['signal'].shape[1]
-    num_chars, num_repeats, num_rowcols = data['code'].shape
+    data values are all 0-5,return[...,0] means which of 1-6 is selected
+                                return[...,1] means which of 7-12 is selected
+    :param data: [number_samples,2]
+    :param paradigm: paradigm matrix ndarray
+    :return: [number_samples,] ndarray
+    """
 
-    predictions = trained_model.predict(data['signal']) # [-1, 2]
-    #TODO Sigmoid should output only 1.
-    predictions = np.delete(predictions, 0, -1).squeeze()
+    def __look_up(arr, paradigm=paradigm):
+        """ arr: [2,] """
+        # arr[0]  0~5->1~6  arr[1] 0~5->7~12
+        return paradigm[arr[1], arr[0]]
 
-    # [num_chars, num_repeats, num_rowcols]
-    # Each entry is the probability of a positive sample (when intensified row/character does contain the desired character).
-    predictions = predictions.reshape([-1, num_repeats, num_rowcols]) 
+    return np.apply_along_axis(__look_up, axis=1, arr=data)
 
-    predictions = _code_reorder(predictions, data['code'])
+def _prob_to_rowcols(prob):
+    """
+    returned values are all 0-5,return[...,0] means which of 1-6 is selected
+                                return[...,1] means which of 7-12 is selected
+    :param prob: (num_letters,12)   accumulated probabilities
+    :return: (num_letters,2) row/column  0-5->1-6 / 0-5->7-12
+    """
+    ascend_indices = np.argsort(prob, axis=-1)  # (num_letters,12)     # ascending
+    selected = np.full((prob.shape[0], 2), np.inf)
+    for i in range(selected.shape[0]):
+        for j in reversed(range(ascend_indices.shape[1])):
+            if ascend_indices[i][j] >= 6 and selected[i][1] == np.inf:
+                selected[i][1] = ascend_indices[i][j] - 6
+            elif ascend_indices[i][j] <= 5 and selected[i][0] == np.inf:
+                selected[i][0] = ascend_indices[i][j]
+    return selected.astype(int)
 
-
-# def _to_code(predictions, code):
-#     result = np.zeros(predictions.shape)
-#     for character in range(predictions.shape[0]):
-#         for repeat in range(predictions.shape[1]):
-#             result[character][repeat] = 
 def _code_reorder(probs, code):
     """ Utility function to reorder the last index of probs according to the order of occurrence of the code.
 
@@ -136,3 +152,39 @@ def _code_reorder(probs, code):
             # sort[i, j, :] = probs[i, j, (code[i, j] - 1).astype(int).tolist()]  # This is wrong !
             sort[i, j, :] = probs[i, j, np.argsort(code[i,j])]
     return sort
+
+def _aggregate_prob_across_trials(sort,num_aggregate):
+    to_aggregate = np.delete(sort, obj=np.s_[num_aggregate:], axis=1)  # (num_letters,num_aggregate,12)
+    # then sum up
+    aggregated = to_aggregate.sum(axis=1)   # (num_letters,12)  # aggregated probabilities
+    return aggregated
+
+def _signalcode_to_aggregate(signal,code,model,num_aggregate):
+    predictions = model.predict(signal)  # [num_samples,2]
+    dropped = np.delete(predictions, 0, -1).squeeze()  # [num_samples,]     <- shit once (predictions,-1,-1)
+    reshaped = dropped.reshape([-1, 15, 12])  # may be different
+    sort = _code_reorder(reshaped, code)  # [85,15,12]
+    aggregated = _aggregate_prob_across_trials(sort, num_aggregate)  # aggregate the probabilities
+    return aggregated
+
+def _aggregated_to_letters(aggregated,paradigm):
+    # (num_letters,12) -> (num_letters,2)
+    selected = _prob_to_rowcols(aggregated)
+    letters = _letter_lookup(selected, paradigm)
+    return letters
+
+def accuracy(letters, target_string):
+    """
+
+    :param letters: ndarray (num_letters,)
+    :param target_string string
+    :return: float
+    """
+    count = 0
+    assert len(letters) == len(target_string)
+    for i in range(len(target_string)):
+        if letters[i] == target_string[i]:
+            count+=1
+    return count/len(target_string)
+    
+    
