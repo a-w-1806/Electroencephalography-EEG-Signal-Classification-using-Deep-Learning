@@ -21,7 +21,7 @@ endif
 #################################################################################
 
 ## Install Python Dependencies
-requirements: test_environment
+requirements: 
 	pip install -r requirements.txt
 
 ## Delete all compiled Python files

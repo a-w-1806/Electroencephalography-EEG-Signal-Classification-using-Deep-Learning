@@ -1,105 +1,34 @@
-BCI_III_P300
-=============
+# Electroencephalography (EEG) Signal Classification using Deep Learning
 
-- ~~set_random_seed~~ `np.random.seed()`
+In this project, I use a Convolutional Neural Network to accomplish a task in the field of [Brain Computer Interface (BCI)](https://en.wikipedia.org/wiki/Brain%E2%80%93computer_interface) called *[P300](https://en.wikipedia.org/wiki/P300_(neuroscience)) speller paradigm*. My goal was to tell to which letter on the speller the subject was paying attention through P300 (a kind of deflection in EEG caused by certain stimuli).
+
+The accuracy of this model is **92%** (for subject A), which can rank **second** in this contest.
+
+![P300](https://3c1703fe8d.site.internapcdn.net/newman/csz/news/800/2015/562df18a48c5c.png)
 
 ## Data
+Data set II: ‹P300 speller paradigm› from [BCI Competition III](http://www.bbci.de/competition/iii/).
 
-Subject_A
-Subject_B
-- Train
-    - Signal (85 * 7794 * 64)
-    - Flashing
-    - StimulusCode
-    - StimulusType
-    - TargetChar (85)
-- Test
-  - Signal (100 * 7794 * 64)
-  - StimulusCode (100 * 7794)
-  - Flashing
+You can read more about this data set [here (pdf)](http://www.bbci.de/competition/iii/desc_II.pdf).
 
+## Jupyter Notebook
+You can read through the entire process in the Jupyter Notebook [here](https://github.com/Yuchen-Wang-SH/Electroencephalography-EEG-Signal-Classification-using-Deep-Learning/blob/master/notebooks/Electroencephalography%20(EEG)%20Signal%20Classification%20using%20Deep%20Learning.ipynb).
 
-## Code to write
+## Scripts
+The scripts used to preprocess the data and construct the model can be found in the [src/ folder](https://github.com/Yuchen-Wang-SH/Electroencephalography-EEG-Signal-Classification-using-Deep-Learning/tree/master/src).
 
-### Data Preparation
+## Want to run locally?
+1. First, clone this repo to your computer.
+2. Then, you need to go [here](http://www.bbci.de/competition/iii/), fill your information below **Download of data sets**. You will receive an email with your account and password to download their data sets. Remember you should download Data set II.
+3. You should create a path of `/data/raw` in the project folder, download and unzip the data set in `raw`, and the path in the Jupyter Notebook should be fine.
+4. Get the true labels [here](http://www.bbci.de/competition/iii/results/index.html). In the notebook I refer to the true labels in a text file called `A_test_labels.txt`.
+5. Type in command line:
 
-- ~~.mat to nparray~~ `extract_data()`
-    - Train
-        - signal (85 * 15 * 12 * 64 * 156)
-            - PAMI slice **0.65s**
-        - label (85 * 15 * 12)
-            - 0 0 0 ... 1 0 0 ..
-        - code (85 * 15 * 12)
-            - [12,11,3,10 ...]
-        - targetchar
-            - 'EAEVQTDOJG8RBRGONCEDHCTUIDB
-              '
-    - Test
-        - signal (100, 15, 12, 64, 156)
-        - code (100, 15, 12)
-            - [12,11,3,10 ...]
-
-- ~~subsample~~ `subsample()`
-- ~~bandpass filter~~ `butter_band_pass_filter()`
-- ~~normalize along channel~~ `standardize_along()`
-
-### Build a model
-
-
-- ~~`np.expand_dims()` then use conv2d~~
-
-- `reshape()` data:4D [all,num_electrodes,timesteps,1] label: 1D
-
-- `to_categorical()` label: 2D
-
-- ~~Stratified~~ `train_test_split()`
-
-- ~~PAMI model~~ `CNN_1_P300_PAMI_BCIIII()`
-
-### Training
-
-- EarlyStopping 'val_mean_squared_error'
-- ~~print and return all stats~~ `print_all_stats()`
-- write log to a file (maybe?)
-- save model
-
-### Testing
-
-- ~~`extract_data()`~~
-- ~~`subsample()`~~
-- ~~`bandpass()`~~
-- ~~normalize along channel~~
-- `signal_mat_sub_band_norm()` (85, 15, 12, 64, 78)
-- `reshape()` data:4D
-
-- `predict()` 2D --[num_samples,num_classes]
-
-
-- stats
-  - `model.predict()` [num,2]
-  - `argmax()` [num,]
-
-
-- letters `test_pipeline()` 
-  - ~~drop the 0's column~~ [num_samples,]
-  - ~~`reshape()` back to~~ --[num_letters,15,12]
-  - ~~sort [12] using 'code'~~ -- [num_letters,15,12]
-  - ~~aggregate or not~~ --[num_letters,12]
-  - ~~[12] to letter~~  --[num_samples,]
-      - ~~first [6] last [6]~~ `prob_to_rowcols`  --(num_letters,2) row/column  0-5->1-6  0-5->7-12
-      - ~~look up~~ `letter_lookup()`
-  - calculate accuracy
-
-DESKTOP-T9MLK18
-
-
-
-
-
-
-
-# Thought
-
--[ ] customize loss function ROC of 1~15 (accuracy or ITR ?)
--[ ] New model  
-
+    ```
+    pip install -r requirements.txt
+    ```
+    or:
+    ```
+    make requirements
+    ```
+6. You are all set!
